@@ -1,0 +1,23 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Prata&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+a.active hr {
+  display: block;
+}
+
+/* Apply Outfit font to all elements */
+* {
+  font-family: 'Outfit', sans-serif;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+/* Class for Prata font */
+.prata-regular {
+  font-family: 'Prata', serif;
+  font-weight: 400; /* Normal weight */
+  font-style: normal; /* Normal style */
+}
