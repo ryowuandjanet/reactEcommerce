@@ -38,7 +38,13 @@ const placeOrderRazorpay = async (req, res) => {
 
 // All Orders data for Admin Panel
 const allOrders = async (req, res) => {
-  // 在這裡獲取所有訂單數據的邏輯
+  try {
+    const orders = await orderModel.find({});
+    res.json({ success: true, orders });
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
 };
 
 // User Order Data For Frontend
@@ -55,7 +61,14 @@ const userOrders = async (req, res) => {
 
 // Update order status from Admin Panel
 const updateStatus = async (req, res) => {
-  // 在這裡更新訂單狀態的邏輯
+  try {
+    const { orderId, status } = req.body;
+    await orderModel.findByIdAndUpdate(orderId, { status });
+    res.json({ success: true, message: 'Status Updated' });
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
 };
 
 export {
