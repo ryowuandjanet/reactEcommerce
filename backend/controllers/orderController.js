@@ -43,7 +43,14 @@ const allOrders = async (req, res) => {
 
 // User Order Data For Frontend
 const userOrders = async (req, res) => {
-  // 在這裡獲取用戶訂單數據的邏輯
+  try {
+    const { userId } = req.body;
+    const orders = await orderModel.find({ userId });
+    res.json({ success: true, orders });
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
 };
 
 // Update order status from Admin Panel
