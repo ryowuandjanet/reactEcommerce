@@ -2,26 +2,31 @@ import axios from 'axios';
 import { useEffect, useState } from 'react';
 import { backendUrl, currency } from '../App';
 import { toast } from 'react-toastify';
+import PropTypes from 'prop-types';
 
 const List = ({ token }) => {
   const [list, setList] = useState([]);
 
   const fetchList = async () => {
+    if (!token) {
+      return;
+    }
     try {
-      const response = await axios.get(`${backendUrl}/api/product/list`);
+      const response = await axios.get(`${backendUrl}/api/product/list`, {
+        headers: { token },
+      });
       if (response.data.success) {
         setList(response.data.products);
       } else {
         toast.error(response.data.message);
       }
     } catch (error) {
-      console.log(error);
-      toast.error(error.message);
+      console.error('Error fetching product list:', error);
+      toast.error(error.response ? error.response.data.message : error.message);
     }
   };
 
   const removeProduct = async (id) => {
-    // 添加确认对话框
     const confirmDelete = window.confirm(
       'Are you sure you want to delete this product?',
     );
@@ -29,7 +34,7 @@ const List = ({ token }) => {
 
     try {
       const response = await axios.post(
-        backendUrl + '/api/product/remove',
+        `${backendUrl}/api/product/remove`,
         { id },
         { headers: { token } },
       );
@@ -40,49 +45,64 @@ const List = ({ token }) => {
         toast.error(response.data.message);
       }
     } catch (error) {
-      console.log(error);
-      toast.error(error.message);
+      console.error('Error removing product:', error);
+      toast.error(error.response ? error.response.data.message : error.message);
     }
   };
 
   useEffect(() => {
     fetchList();
-  }, []);
+  }, [token]);
 
   return (
-    <>
-      <p className="mb-2">All Products List</p>
-      <div className="flex flex-col gap-2">
-        <div className="hidden md:grid grid-cols-[1fr_3fr_1fr_1fr_1fr] items-center py-1 px-2 border bg-gray-100 text-sm">
-          <b>Image</b>
-          <b>Name</b>
-          <b>Category</b>
-          <b>Price</b>
-          <b className="text-center">Action</b>
-        </div>
-        {list.map((item, index) => (
-          <div
-            key={item._id || index}
-            className="grid grid-cols-[1fr_3fr_1fr_1fr_1fr] items-center py-1 px-2 border-b"
-          >
-            <img className="w-12" src={item.image[0]} alt={item.name} />
-            <p>{item.name}</p>
-            <p>{item.category}</p>
-            <p>
-              {currency}
-              {item.price}
-            </p>
-            <p
-              onClick={() => removeProduct(item._id)}
-              className="text-right md:text-center cursor-pointer text-lg"
-            >
-              X
-            </p>
-          </div>
-        ))}
+    <div className="container mx-auto px-4">
+      <h2 className="text-2xl font-bold mb-4">All Products List</h2>
+      <div className="overflow-x-auto">
+        <table className="w-full table-auto">
+          <thead>
+            <tr className="bg-gray-200 text-left">
+              <th className="px-4 py-2">Image</th>
+              <th className="px-4 py-2">Name</th>
+              <th className="px-4 py-2">Category</th>
+              <th className="px-4 py-2">Price</th>
+              <th className="px-4 py-2 text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((item) => (
+              <tr key={item._id} className="border-b">
+                <td className="px-4 py-2">
+                  <img
+                    className="w-16 h-16 object-cover"
+                    src={item.image[0]}
+                    alt={item.name}
+                  />
+                </td>
+                <td className="px-4 py-2">{item.name}</td>
+                <td className="px-4 py-2">{item.category}</td>
+                <td className="px-4 py-2">
+                  {currency}
+                  {item.price}
+                </td>
+                <td className="px-4 py-2 text-center">
+                  <button
+                    onClick={() => removeProduct(item._id)}
+                    className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-    </>
+    </div>
   );
+};
+
+List.propTypes = {
+  token: PropTypes.string.isRequired,
 };
 
 export default List;
