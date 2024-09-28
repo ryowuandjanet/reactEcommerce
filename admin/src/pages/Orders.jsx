@@ -36,7 +36,7 @@ const Orders = ({ token }) => {
         { headers: { token } },
       );
       if (response.data.success) {
-        await fetchAllOrders();
+        setOrders(response.data.orders.reverse());
       } else {
         toast.error(response.data.message);
       }

@@ -50,19 +50,12 @@ const ShopContextProvider = (props) => {
   };
 
   const getCartCount = () => {
-    let totalCount = 0;
-    for (const items in cartItems) {
-      for (const item in cartItems[items]) {
-        try {
-          if (cartItems[items][item] > 0) {
-            totalCount += cartItems[items][item];
-          }
-        } catch (error) {
-          console.log(error.message);
-        }
-      }
-    }
-    return totalCount;
+    return Object.values(cartItems).reduce((count, sizes) => {
+      return (
+        count +
+        Object.values(sizes).reduce((sizeCount, qty) => sizeCount + qty, 0)
+      );
+    }, 0);
   };
 
   const updateQuantity = async (itemId, size, quantity) => {
@@ -89,33 +82,25 @@ const ShopContextProvider = (props) => {
   };
 
   const getCartAmount = () => {
-    let totalAmount = 0;
-
-    for (const items in cartItems) {
-      const itemInfo = products.find((product) => product._id === items);
-
+    return Object.entries(cartItems).reduce((totalAmount, [itemId, sizes]) => {
+      const itemInfo = products.find((product) => product._id === itemId);
       if (itemInfo) {
-        // Check if itemInfo is defined
-        for (const item in cartItems[items]) {
-          try {
-            if (cartItems[items][item] > 0) {
-              totalAmount += itemInfo.price * cartItems[items][item];
-            }
-          } catch (error) {
-            console.log(error.message);
-          }
-        }
-      } else {
-        console.warn(`Product with ID ${items} not found in products.`);
+        return (
+          totalAmount +
+          Object.entries(sizes).reduce((sizeTotal, [size, qty]) => {
+            return sizeTotal + itemInfo.price * qty;
+          }, 0)
+        );
       }
-    }
-
-    return totalAmount;
+      console.warn(`Product with ID ${itemId} not found in products.`);
+      return totalAmount;
+    }, 0);
   };
 
   const getProductsData = async () => {
     try {
       const response = await axios.get(backendUrl + '/api/product/list');
+      console.log('Products Response:', response.data); // 檢查獲取的數據
       if (response.data.success) {
         setProducts(response.data.products);
       } else {

@@ -43,8 +43,22 @@ const updateCart = async (req, res) => {
 const getUserCart = async (req, res) => {
   try {
     const { userId } = req.body;
+
+    if (!userId) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'User ID is required' });
+    }
+
     const userData = await userModel.findById(userId);
-    let cartData = await userData.cartData;
+
+    if (!userData) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'User not found' });
+    }
+
+    let cartData = userData.cartData || {}; // 使用空對象作為預設值
 
     res.json({ success: true, cartData });
   } catch (error) {

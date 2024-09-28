@@ -1,56 +1,59 @@
 import orderModel from '../models/orderModel.js';
 import userModel from '../models/userModel.js';
 import Stripe from 'stripe';
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+import Razorpay from 'razorpay';
 
 const currency = 'inr';
 const deliveryCharge = 10;
 
-const placeOrder = async (req, res) => {
-  // 在這裡處理下訂單的邏輯
-  try {
-    const { userId, items, itemId, amount, address } = req.body;
-    const orderData = {
-      userId,
-      items,
-      itemId,
-      address,
-      amount,
-      paymentMethod: 'COD',
-      payment: false,
-      date: Date.now(),
-    };
-    const newOrder = new orderModel(orderData);
-    await newOrder.save();
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const razorpayInstance = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
 
+// 通用的創建訂單函數
+const createOrder = async (userId, items, address, amount, paymentMethod) => {
+  const orderData = {
+    userId,
+    items,
+    address,
+    amount,
+    paymentMethod,
+    payment: false,
+    date: Date.now(),
+  };
+  const newOrder = new orderModel(orderData);
+  await newOrder.save();
+  return newOrder;
+};
+
+// 下訂單的基本邏輯
+const placeOrder = async (req, res) => {
+  try {
+    const { userId, items, amount, address } = req.body;
+    await createOrder(userId, items, address, amount, 'COD');
     await userModel.findByIdAndUpdate(userId, { cartData: {} });
-    res.json({ success: true, message: 'Order Place' });
+    res.json({ success: true, message: 'Order placed successfully' });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.json({ success: false, message: error.message });
   }
 };
 
-// Placing orders using Stripe Method
+// 使用 Stripe 下訂單
 const placeOrderStripe = async (req, res) => {
   try {
     const { userId, items, amount, address } = req.body;
     const { origin } = req.headers;
 
-    const orderData = {
+    const newOrder = await createOrder(
       userId,
       items,
       address,
       amount,
-      paymentMethod: 'Stripe',
-      payment: false,
-      date: Date.now(),
-    };
-
-    const newOrder = new orderModel(orderData);
-    await newOrder.save();
-
+      'Stripe',
+    );
     const line_items = items.map((item) => ({
       price_data: {
         currency: currency,
@@ -83,69 +86,110 @@ const placeOrderStripe = async (req, res) => {
 
     res.json({ success: true, session_url: session.url });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.json({ success: false, message: error.message });
   }
 };
 
-// Placing orders using Razorpay Method
+// 使用 Razorpay 下訂單
 const placeOrderRazorpay = async (req, res) => {
-  // 在這裡處理使用 Razorpay 付款的邏輯
+  try {
+    const { userId, items, amount, address } = req.body;
+    const newOrder = await createOrder(
+      userId,
+      items,
+      address,
+      amount,
+      'Razorpay',
+    );
+
+    const options = {
+      amount: amount * 100, // 金額轉換為最小單位
+      currency: currency.toUpperCase(),
+      receipt: newOrder._id.toString(),
+    };
+
+    // 使用 Razorpay 創建訂單
+    const order = await razorpayInstance.orders.create(options);
+    res.json({ success: true, order });
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
 };
 
-// All Orders data for Admin Panel
+const verifyRazorpay = async (req, res) => {
+  try {
+    const { userId, razorpay_order_id } = req.body;
+    const orderInfo = await razorpayInstance.orders.fetch(razorpay_order_id);
+    if (orderInfo.status === 'paid') {
+      await orderModel.findByIdAndUpdate(orderInfo.receipt, { payment: true });
+      await userModel.findByIdAndUpdate(userId, { cartData: {} });
+      res.json({ success: true, message: 'Payment Successful' });
+    } else {
+      res.json({ success: false, message: 'Payment Failed' });
+    }
+  } catch (error) {
+    console.error(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+// 獲取所有訂單數據
 const allOrders = async (req, res) => {
   try {
     const orders = await orderModel.find({});
     res.json({ success: true, orders });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.json({ success: false, message: error.message });
   }
 };
 
-// User Order Data For Frontend
+// 獲取用戶訂單數據
 const userOrders = async (req, res) => {
   try {
     const { userId } = req.body;
     const orders = await orderModel.find({ userId });
     res.json({ success: true, orders });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.json({ success: false, message: error.message });
   }
 };
 
-// Update order status from Admin Panel
+// 更新訂單狀態
 const updateStatus = async (req, res) => {
   try {
     const { orderId, status } = req.body;
     await orderModel.findByIdAndUpdate(orderId, { status });
-    res.json({ success: true, message: 'Status Updated' });
+    res.json({ success: true, message: 'Status updated successfully' });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.json({ success: false, message: error.message });
   }
 };
 
+// 驗證 Stripe 支付結果
 const verifyStripe = async (req, res) => {
   const { orderId, success, userId } = req.body;
   try {
     if (success === 'true') {
       await orderModel.findByIdAndUpdate(orderId, { payment: true });
       await userModel.findByIdAndUpdate(userId, { cartData: {} });
-      res.json({ success: false });
+      res.json({ success: true });
     } else {
       await orderModel.findByIdAndDelete(orderId);
       res.json({ success: false });
     }
   } catch (error) {
-    console.log(error);
+    console.error(error);
     res.json({ success: false, message: error.message });
   }
 };
 
 export {
+  verifyRazorpay,
   placeOrder,
   placeOrderStripe,
   placeOrderRazorpay,

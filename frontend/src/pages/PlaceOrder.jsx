@@ -37,6 +37,55 @@ const PlaceOrder = () => {
     setFormData((data) => ({ ...data, [name]: value }));
   };
 
+  const initPay = (order) => {
+    const options = {
+      key: import.meta.env.VITE_RAZORPAY_KEY_ID, // 您的 Razorpay 鍵
+      amount: order.amount * 100, // 確保這裡乘以 100
+      currency: 'INR', // 請確保這個幣種是正確的
+      name: 'Order Payment',
+      description: 'Order Payment',
+      order_id: order.id, // 來自後端的訂單 ID
+      receipt: order.receipt, // 可選的收據 ID
+      handler: async (response) => {
+        console.log(response);
+        try {
+          const { data } = await axios.post(
+            backendUrl + '/api/order/verifyRazorpay',
+            response,
+            { headers: { token } },
+          );
+          if (data.success) {
+            navigate('/orders');
+            setCartItems({});
+          }
+        } catch (error) {
+          console.log(error);
+          toast.error(error);
+        }
+      },
+      prefill: {
+        name: `${formData.firstName} ${formData.lastName}`,
+        email: formData.email,
+        contact: formData.phone,
+      },
+      notes: {
+        address:
+          formData.street +
+          ', ' +
+          formData.city +
+          ', ' +
+          formData.state +
+          ', ' +
+          formData.zipcode +
+          ', ' +
+          formData.country,
+      },
+    };
+
+    const rzp = new window.Razorpay(options);
+    rzp.open();
+  };
+
   const onSubmitHandler = async (event) => {
     event.preventDefault();
     try {
@@ -86,6 +135,19 @@ const PlaceOrder = () => {
             window.location.replace(session_url);
           } else {
             toast.error(responseStripe.data.message);
+          }
+          break;
+        }
+        case 'razorpay': {
+          const responseRazorpay = await axios.post(
+            backendUrl + '/api/order/razorpay',
+            orderData,
+            { headers: { token } },
+          );
+          if (responseRazorpay.data.success) {
+            initPay(responseRazorpay.data.order);
+          } else {
+            toast.error(responseRazorpay.data.message);
           }
           break;
         }

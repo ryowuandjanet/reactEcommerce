@@ -3,12 +3,14 @@ import { useContext, useEffect } from 'react';
 import { ShopContext } from '../context/ShopContext';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
+
 const Verify = () => {
   const { navigate, token, setCartItems, backendUrl } = useContext(ShopContext);
-  const { searchParams, setSearchParams } = useSearchParams();
+  const [searchParams] = useSearchParams(); // 正確解構 searchParams
 
   const success = searchParams.get('success');
   const orderId = searchParams.get('orderId');
+
   const verifyPayment = async () => {
     try {
       if (!token) {
@@ -34,6 +36,7 @@ const Verify = () => {
   useEffect(() => {
     verifyPayment();
   }, [token]);
+
   return <div>Verify</div>;
 };
 
