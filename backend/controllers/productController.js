@@ -12,19 +12,18 @@ const addProduct = async (req, res) => {
       sizes,
       bestseller,
     } = req.body;
-    const image1 = req.files.image1 && req.files.image1[0];
-    const image2 = req.files.image2 && req.files.image2[0];
-    const image3 = req.files.image3 && req.files.image3[0];
-    const image4 = req.files.image4 && req.files.image4[0];
 
-    const images = [image1, image2, image3, image4].filter(
-      (item) => item !== undefined,
-    );
+    const images = ['image1', 'image2', 'image3', 'image4']
+      .map((key) => req.files[key] && req.files[key][0])
+      .filter(Boolean);
 
-    let imageUrl = await Promise.all(
-      images.map(async (item) => {
-        let result = await cloudinary.uploader.upload(item.path, {
+    const imageUrls = await Promise.all(
+      images.map(async (image) => {
+        const result = await cloudinary.uploader.upload(image.path, {
           resource_type: 'image',
+          folder: 'forever', // 指定要上传的目录
+          public_id: image.originalname.split('.')[0], // 使用文件名作为 public_id
+          overwrite: true, // 如果希望覆盖同名文件
         });
         return result.secure_url;
       }),
@@ -36,20 +35,19 @@ const addProduct = async (req, res) => {
       category,
       price: Number(price),
       subCategory,
-      bestseller: bestseller === 'true' ? true : false,
+      bestseller: bestseller === 'true',
       sizes: JSON.parse(sizes),
-      image: imageUrl,
+      image: imageUrls,
       date: Date.now(),
     };
 
-    console.log(productData);
     const product = new productModel(productData);
     await product.save();
 
     res.json({ success: true, message: 'Product Added' });
   } catch (error) {
-    console.log(error);
-    res.json({ success: false, message: error.message });
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -59,26 +57,36 @@ const listProducts = async (req, res) => {
     const products = await productModel.find({});
     res.json({ success: true, products });
   } catch (error) {
-    console.error(error); // Log the error for debugging
-    res.json({ success: false, message: error.message });
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 // Function for removing a product
 const removeProduct = async (req, res) => {
   try {
-    await productModel.findByIdAndDelete(req.body.id);
+    const { id } = req.body;
+
+    // Check if the product exists before attempting to delete
+    const product = await productModel.findById(id);
+    if (!product) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Product not found' });
+    }
+
+    await productModel.findByIdAndDelete(id);
     res.json({ success: true, message: 'Product Removed' });
   } catch (error) {
-    console.error(error); // Log the error for debugging
-    res.json({ success: false, message: error.message });
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 // Function for retrieving single product info
 const singleProduct = async (req, res) => {
   try {
-    const { productId } = req.body; // Destructure productId from req.body
+    const { productId } = req.body;
     const product = await productModel.findById(productId);
 
     if (!product) {
@@ -89,7 +97,7 @@ const singleProduct = async (req, res) => {
 
     res.json({ success: true, product });
   } catch (error) {
-    console.error(error); // Log the error for debugging
+    console.error(error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

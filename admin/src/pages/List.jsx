@@ -21,6 +21,12 @@ const List = ({ token }) => {
   };
 
   const removeProduct = async (id) => {
+    // 添加确认对话框
+    const confirmDelete = window.confirm(
+      'Are you sure you want to delete this product?',
+    );
+    if (!confirmDelete) return;
+
     try {
       const response = await axios.post(
         backendUrl + '/api/product/remove',
@@ -56,7 +62,7 @@ const List = ({ token }) => {
         </div>
         {list.map((item, index) => (
           <div
-            key={item.id || index}
+            key={item._id || index}
             className="grid grid-cols-[1fr_3fr_1fr_1fr_1fr] items-center py-1 px-2 border-b"
           >
             <img className="w-12" src={item.image[0]} alt={item.name} />
